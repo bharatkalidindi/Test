@@ -21,6 +21,7 @@ body { margin: 0; font-family: sans-serif; background: #f4f7ff; text-align:cente
 <div id="abacus"></div>
 
 <script>
+
 const columns = 5;
 const abacus = document.getElementById("abacus");
 const beads = [];
@@ -41,17 +42,21 @@ class Bead {
     toggle(){
         this.active = !this.active;
         if(this.type=="upper"){
-            this.el.style.top = this.active ? 140 : 50;
+            this.el.style.top = this.active ? "140px" : "50px";
         } else {
             // recalc positions of all lower beads in this column
             const lowers = beads.filter(b=>b.col==this.col && b.type=="lower");
-            const activeLowers = lowers.filter(b=>b.active).sort((a,b)=>a.index-b.index);
+            
+            // CORRECTED LINE: Sort in descending order to stack beads upwards correctly.
+            const activeLowers = lowers.filter(b=>b.active).sort((a,b)=>b.index-a.index); 
+            
             const startY = 170; // position below beam
             activeLowers.forEach((b,i)=>{
-                b.el.style.top = startY + i*55;
+                b.el.style.top = (startY + i*55) + "px";
             });
+            
             // reset inactive beads
-            lowers.filter(b=>!b.active).forEach(b=>b.el.style.top = b.baseTop);
+            lowers.filter(b=>!b.active).forEach(b=>b.el.style.top = b.baseTop + "px");
         }
         // highlight beam if active
         if(this.active){
