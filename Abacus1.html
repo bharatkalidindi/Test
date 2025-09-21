@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Interactive Abacus Tutorial</title>
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.6.0/lib/p5.min.js"></script>
+  <style>
+    body { margin:0; background:#f4f7ff; font-family: Arial, sans-serif; }
+    #ui {
+      position: fixed; top: 10px; left: 10px; right: 10px;
+      background: white; border-radius: 10px; padding: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      z-index: 100;
+    }
+    #ui button {
+      padding: 8px 14px; margin-top: 8px;
+      background: #3b7cff; border:0; border-radius:6px;
+      color:white; font-weight:600; cursor:pointer;
+    }
+    canvas { display:block; }
+  </style>
+</head>
+<body>
+<div id="ui">
+  <h2>Abacus Tutorial</h2>
+  <p id="explanation">Step 1: Each column has 1 upper bead (worth 5) and 4 lower beads (worth 1 each). Tap beads!</p>
+  <button onclick="nextStep()">Next Step</button>
+</div>
+
+<script>
+let abacus;
+let step = 0;
+
+function setup(){
+  createCanvas(windowWidth, windowHeight);
+  abacus = new Abacus(5); // 5 columns for demo
+}
+
+function draw(){
+  background(244,247,255);
+  abacus.update();
+  abacus.draw();
+}
+
+function mousePressed(){ abacus.handleInput(mouseX, mouseY); }
+function touchStarted(){ abacus.handleInput(mouseX, mouseY); return false; }
+function windowResized(){
+  resizeCanvas(windowWidth, windowHeight);
+  abacus.layout();
+}
+
+// ===== Abacus class =====
+class Abacus {
+  constructor(cols){
+    this.cols = cols;
+    this.beads = [];
+    this.layout();
+  }
+
+  layout(){
+    this.beads = [];
+    let spacingX = width/(this.cols+1);
+    let topY = height*0.2;
+    let midY = height*0.5;
+    let spacingY = height*0.06;
+    let r = min(width,height)/30; // responsive bead size
+
+    for(let c=0;c<this.cols;c++){
+      let cx = (c+1)*spacingX;
+      // upper bead
+      this.beads.push(new Bead(cx, topY, r, "upper", c));
+      // lower beads
+      for(let i=0;i<4;i++){
+        this.beads.push(new Bead(cx, midY + i*spacingY, r, "lower", c));
+      }
+    }
+  }
+
+  draw(){
+    stroke(100);
+    for(let b of this.beads){ b.draw(); }
+    // draw values
+    noStroke();
+    fill(20);
+    textSize(min(width,height)/25);
+    textAlign(CENTER);
+    for(let c=0;c<this.cols;c++){
+      text(this.getDigit(c), (c+1)*width/(this.cols+1), height-50);
+    }
+    text("Value: "+this.getValue(), width/2, height-15);
+  }
+
+  update(){
+    for(let b of this.beads){ b.update(); }
+  }
+
+  handleInput(mx,my){
+    for(let b of this.beads){
+      if(dist(mx,my,b.x,b.y)<b.r*1.5){
+        b.active=!b.active;
+        b.setTarget();
+      }
+    }
+  }
+
+  getDigit(col){
+    let upper = this.beads.find(b=>b.col===col && b.type==="upper" && b.active)?5:0;
+    let lowers = this.beads.filter(b=>b.col===col && b.type==="lower" && b.active).length;
+    return upper+lowers;
+  }
+
+  getValue(){
+    let val=0;
+    for(let c=0;c<this.cols;c++){
+      val += this.getDigit(c)*Math.pow(10,this.cols-1-c);
+    }
+    return val;
+  }
+}
+
+// ===== Bead class with animation =====
+class Bead {
+  constructor(x,y,r,type,col){
+    this.x=x; this.baseY=y; this.r=r; this.type=type; this.col=col;
+    this.active=false;
+    this.targetY=y;
+    this.currentY=y;
+  }
+  setTarget(){
+    let offset = height*0.08; // how far bead moves
+    this.targetY = this.baseY + (this.active ? (this.type==="upper"? offset : -offset) : 0);
+  }
+  update(){
+    this.currentY = lerp(this.currentY, this.targetY, 0.2); // smooth slide
+  }
+  draw(){
+    let col = this.type==="upper" ? color(255,120,120) : color(120,200,255);
+    if(this.active) col = this.type==="upper" ? color(200,40,40) : color(40,140,255);
+    noStroke();
+    fill(col);
+    ellipse(this.x, this.currentY, this.r*2, this.r*2);
+  }
+}
+
+// ===== Tutorial steps =====
+function nextStep(){
+  step++;
+  let exp = document.getElementById("explanation");
+  if(step===1){
+    exp.innerText="Step 2: Move lower beads up (blue) for 1–4, move the upper bead down (red) for 5.";
+  } else if(step===2){
+    exp.innerText="Step 3: Combine them: e.g. upper down + 3 lowers up = 8.";
+  } else if(step===3){
+    exp.innerText="Step 4: Each column is a place value (ones, tens, hundreds). Try making 23 = two beads in tens + three in ones.";
+  } else if(step===4){
+    exp.innerText="Step 5: To add, represent the first number, then move beads for the second number. If a column exceeds 9, carry to the next column.";
+  } else if(step===5){
+    exp.innerText="Step 6: Subtraction works by moving beads back. For multiplication/division, use repeated addition/subtraction.";
+  } else {
+    exp.innerText="Tutorial finished! Now you can experiment freely.";
+  }
+}
+</script>
+</body>
+</html>
