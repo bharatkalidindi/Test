@@ -84,17 +84,14 @@ class Bead {
 
     snapToPosition() {
         if (this.type === "upper") {
-            this.top = this.top > 95 ? 140 : 50;
+            // Snap to either minTop or maxTop based on proximity
+            this.top = this.top > (this.minTop + this.maxTop) / 2 ? this.maxTop : this.minTop;
         } else {
-            // Corrected lower beads snapping logic
-            const beamY = 180;
-            const index = parseInt(this.el.dataset.index);
-            if (this.top < beamY + 10) {
-                // Snap to beam, stacking them correctly
-                this.top = 170 + (index * 55);
+            // Snap to either minTop or maxTop based on proximity to beam
+            if (this.top < 200) {
+                this.top = this.minTop;
             } else {
-                // Snap to bottom
-                this.top = 230 + (index * 55);
+                this.top = this.maxTop;
             }
         }
         this.el.style.top = this.top + "px";
@@ -126,9 +123,9 @@ for (let c = 0; c < columns; c++) {
         const lower = document.createElement("div");
         lower.className = "bead lower";
         lower.textContent = "1";
-        // Assign a data-index to each bead for correct positioning
         lower.dataset.index = i;
         colDiv.appendChild(lower);
+        // Pass the correct min and max top values for each bead
         beads.push(new Bead(c, "lower", lower, 170, 230 + i * 55, beam));
     }
 
@@ -138,10 +135,15 @@ for (let c = 0; c < columns; c++) {
 // Calculate value based on bead positions
 function getDigit(col) {
     let upperBead = beads.find(b => b.col === col && b.type === "upper");
-    let upper = upperBead.top > 95 ? 5 : 0;
+    let upper = (upperBead.top === upperBead.minTop) ? 5 : 0;
 
     let lowerBeads = beads.filter(b => b.col === col && b.type === "lower");
-    let lowers = lowerBeads.filter(b => b.top < 200).length;
+    let lowers = 0;
+    for (let bead of lowerBeads) {
+        if (bead.top === bead.minTop) {
+            lowers++;
+        }
+    }
     return upper + lowers;
 }
 
