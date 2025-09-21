@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Touch Abacus Working</title>
+<style>
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #f4f7ff;
+  text-align: center;
+}
+#status {
+  margin: 20px;
+  font-size: 22px;
+  font-weight: bold;
+}
+#warning {
+  color: red;
+  font-size: 18px;
+  font-weight: bold;
+  margin: 5px;
+  min-height: 20px;
+}
+#abacus {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+  user-select: none;
+  touch-action: manipulation;
+}
+.column {
+  margin: 0 14px;
+  position: relative;
+  height: 400px;
+  width: 60px;
+}
+.rod {
+  position: absolute;
+  top: 180px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 100%;
+  background: #444;
+  z-index: -1;
+}
+.beam {
+  position: absolute;
+  top: 180px;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background: #222;
+  z-index: 1;
+  transition: box-shadow 0.2s;
+}
+.beam.highlight {
+  box-shadow: 0 0 20px 5px rgba(255,215,0,0.7);
+}
+.bead {
+  width: 50px; height: 50px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-weight: bold;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  transition: top 0.25s;
+}
+.upper { background: #ff7070; top: 50px; }
+.lower { background: #409eff; }
+</style>
+</head>
+<body>
+<div id="status">Value: 0</div>
+<div id="warning"></div>
+<div id="abacus"></div>
+
+<script>
+const columns = 5;
+const abacus = document.getElementById("abacus");
+const beads = [];
+
+class Bead {
+  constructor(col, type, el, baseTop, moveDistance, beamEl){
+    this.col = col;
+    this.type = type;
+    this.el = el;
+    this.active = false;
+    this.baseTop = baseTop;
+    this.moveDistance = moveDistance;
+    this.el.style.top = this.baseTop + "px";
+    this.beamEl = beamEl;
+    el.addEventListener("touchstart", () => this.toggle());
+    el.addEventListener("click", () => this.toggle());
+  }
+  toggle(){
+    this.active = !this.active;
+    if(this.type==="upper"){
+      this.el.style.top = this.active ? this.baseTop + this.moveDistance : this.baseTop;
+    } else {
+      this.el.style.top = this.active ? this.baseTop - this.moveDistance : this.baseTop;
+    }
+    // Beam highlight
+    if(this.active) {
+      this.beamEl.classList.add("highlight");
+      setTimeout(()=>this.beamEl.classList.remove("highlight"),300);
+    }
+    updateValue();
+    validateMoves();
+  }
+}
+
+// Build abacus
+for(let c=0;c<columns;c++){
+  const colDiv = document.createElement("div");
+  colDiv.className="column";
+
+  const rod = document.createElement("div");
+  rod.className="rod";
+  colDiv.appendChild(rod);
+
+  const beam = document.createElement("div");
+  beam.className="beam";
+  colDiv.appendChild(beam);
+
+  // upper bead
+  const upper = document.createElement("div");
+  upper.className="bead upper";
+  upper.textContent="5";
+  colDiv.appendChild(upper);
+  beads.push(new Bead(c,"upper",upper,50,90,beam));
+
+  // lower beads
+  for(let i=0;i<4;i++){
+    const lower = document.createElement("div");
+    lower.className="bead lower";
+    lower.textContent="1";
+    colDiv.appendChild(lower);
+    let baseY = 230 + i*55;
+    beads.push(new Bead(c,"lower",lower,baseY,55,beam));
+  }
+
+  abacus.appendChild(colDiv);
+}
+
+function getDigit(col){
+  let upper = beads.find(b=>b.col===col && b.type==="upper" && b.active)?5:0;
+  let lowers = beads.filter(b=>b.col===col && b.type==="lower" && b.active).length;
+  return upper+lowers;
+}
+
+function updateValue(){
+  let total=0;
+  for(let c=0;c<columns;c++){
+    total += getDigit(c)*Math.pow(10,columns-1-c);
+  }
+  document.getElementById("status").textContent = "Value: " + total;
+}
+
+function validateMoves(){
+  let warning = "";
+  for(let c=0;c<columns;c++){
+    const lowersActive = beads.filter(b=>b.col===c && b.type==="lower" && b.active).length;
+    if(lowersActive>4){
+      warning = "Too many lower beads in column "+(c+1);
+      break;
+    }
+  }
+  document.getElementById("warning").textContent = warning;
+}
+</script>
+</body>
+</html>
