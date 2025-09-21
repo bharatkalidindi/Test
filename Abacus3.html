@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Interactive Abacus Tutorial</title>
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.6.0/lib/p5.min.js"></script>
+  <style>
+    body { margin:0; background:#f4f7ff; font-family: Arial, sans-serif; overflow:hidden; }
+    #ui {
+      position: fixed; top: 10px; left: 10px; right: 10px;
+      background: white; border-radius: 10px; padding: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      z-index: 20;   /* make sure UI is on top of canvas */
+    }
+    #ui button {
+      padding: 8px 14px; margin-top: 8px;
+      background: #3b7cff; border:0; border-radius:6px;
+      color:white; font-weight:600; cursor:pointer;
+    }
+    canvas {
+      display:block;
+      position:fixed;
+      top:0; left:0;
+      z-index:0;   /* canvas stays behind UI */
+    }
+  </style>
+</head>
+<body>
+<div id="ui">
+  <h2>Abacus Tutorial</h2>
+  <p id="explanation">Step 1: Each column has 1 upper bead (worth 5) and 4 lower beads (worth 1 each). Tap beads!</p>
+  <button onclick="nextStep()">Next Step</button>
+</div>
+
+<script>
+/* ... keep the abacus code exactly as I gave you before ... */
+</script>
+</body>
+</html>
