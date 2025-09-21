@@ -27,7 +27,130 @@ body {
 
 <script> 
 
+const columns = 5;
+const abacus = document.getElementById("abacus");
+const beads = [];
 
+class Bead {
+    constructor(col, type, el, minTop, maxTop, beamEl) {
+        this.col = col;
+        this.type = type;
+        this.el = el;
+        this.minTop = minTop;
+        this.maxTop = maxTop;
+        this.top = this.type === "upper" ? 50 : 230 + (this.el.dataset.index * 55);
+        this.el.style.top = this.top + "px";
+        this.beamEl = beamEl;
+
+        this.initialY = 0;
+        this.initialTop = 0;
+
+        this.el.addEventListener("touchstart", e => this.touchStart(e));
+        this.el.addEventListener("touchmove", e => this.touchMove(e));
+        this.el.addEventListener("touchend", e => this.touchEnd(e));
+    }
+
+    touchStart(e) {
+        e.preventDefault();
+        this.initialY = e.touches[0].clientY;
+        this.initialTop = this.top;
+    }
+
+    touchMove(e) {
+        e.preventDefault();
+        const deltaY = e.touches[0].clientY - this.initialY;
+        let newTop = this.initialTop + deltaY;
+
+        if (newTop < this.minTop) newTop = this.minTop;
+        if (newTop > this.maxTop) newTop = this.maxTop;
+
+        this.top = newTop;
+        this.el.style.top = this.top + "px";
+
+        const beamY = 180;
+        if (this.top <= beamY + 5 && this.top >= beamY - 55) {
+            this.beamEl.classList.add("highlight");
+        } else {
+            this.beamEl.classList.remove("highlight");
+        }
+    }
+
+    touchEnd(e) {
+        this.snapToPosition();
+        this.beamEl.classList.remove("highlight");
+        updateValue();
+    }
+
+    snapToPosition() {
+        if (this.type === "upper") {
+            this.top = this.top > 95 ? 140 : 50;
+        } else {
+            // Lower beads logic
+            const beamY = 180;
+            if (this.top < beamY + 10) {
+                // Snap to beam
+                this.top = 170;
+            } else {
+                // Snap to bottom
+                this.top = 230 + (this.el.dataset.index * 55);
+            }
+        }
+        this.el.style.top = this.top + "px";
+    }
+}
+
+// Build abacus
+for (let c = 0; c < columns; c++) {
+    const colDiv = document.createElement("div");
+    colDiv.className = "column";
+
+    const rod = document.createElement("div");
+    rod.className = "rod";
+    colDiv.appendChild(rod);
+
+    const beam = document.createElement("div");
+    beam.className = "beam";
+    colDiv.appendChild(beam);
+
+    // Upper bead
+    const upper = document.createElement("div");
+    upper.className = "bead upper";
+    upper.textContent = "5";
+    colDiv.appendChild(upper);
+    beads.push(new Bead(c, "upper", upper, 50, 140, beam));
+
+    // Lower beads
+    for (let i = 0; i < 4; i++) {
+        const lower = document.createElement("div");
+        lower.className = "bead lower";
+        lower.textContent = "1";
+        lower.dataset.index = i;
+        colDiv.appendChild(lower);
+        beads.push(new Bead(c, "lower", lower, 170, 230 + i * 55, beam));
+    }
+
+    abacus.appendChild(colDiv);
+}
+
+// Calculate value based on bead positions
+function getDigit(col) {
+    let upperBead = beads.find(b => b.col === col && b.type === "upper");
+    let upper = upperBead.top > 95 ? 5 : 0;
+
+    let lowerBeads = beads.filter(b => b.col === col && b.type === "lower");
+    let lowers = lowerBeads.filter(b => b.top < 200).length;
+    return upper + lowers;
+}
+
+function updateValue() {
+    let total = 0;
+    for (let c = 0; c < columns; c++) {
+        total += getDigit(c) * Math.pow(10, columns - 1 - c);
+    }
+    document.getElementById("status").textContent = "Value: " + total;
+}
+
+updateValue();
 </script>
 </body>
 </html>
