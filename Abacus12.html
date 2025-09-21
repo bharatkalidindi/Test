@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Interactive Touch Abacus</title>
+<style>
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #f4f7ff;
+  text-align: center;
+}
+#status { margin: 20px; font-size: 22px; font-weight: bold; }
+#abacus { display: flex; justify-content: center; margin-top: 10px; user-select: none; touch-action: none; }
+.column { position: relative; margin: 0 12px; height: 400px; width: 60px; }
+.rod { position: absolute; top: 180px; left: 50%; transform: translateX(-50%); width: 8px; height: 100%; background: #444; z-index: -1; }
+.beam { position: absolute; top: 180px; left: 0; right: 0; height: 8px; background: #222; z-index: 1; transition: box-shadow 0.2s; }
+.beam.highlight { box-shadow: 0 0 20px 5px rgba(255,215,0,0.7); }
+.bead { width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; position: absolute; left: 50%; transform: translateX(-50%); touch-action: none; }
+.upper { background: #ff7070; top: 50px; }
+.lower { background: #409eff; }
+</style>
+</head>
+<body>
+<div id="status">Value: 0</div>
+<div id="abacus"></div>
+
+<script> 
+
+    const columns = 5;
+const abacus = document.getElementById("abacus");
+const beads = [];
+
+class Bead {
+    constructor(col, type, el, minTop, maxTop, beamEl) {
+        this.col = col;
+        this.type = type;
+        this.el = el;
+        this.minTop = minTop;
+        this.maxTop = maxTop;
+        // Correct initial top calculation
+        this.top = this.type === "upper" ? 50 : 230 + (el.dataset.index * 55);
+        this.el.style.top = this.top + "px";
+        this.beamEl = beamEl;
+
+        this.initialY = 0;
+        this.initialTop = 0;
+
+        this.el.addEventListener("touchstart", e => this.touchStart(e));
+        this.el.addEventListener("touchmove", e => this.touchMove(e));
+        this.el.addEventListener("touchend", e => this.touchEnd(e));
+    }
+
+    touchStart(e) {
+        e.preventDefault();
+        this.initialY = e.touches[0].clientY;
+        this.initialTop = this.top;
+    }
+
+    touchMove(e) {
+        e.preventDefault();
+        const deltaY = e.touches[0].clientY - this.initialY;
+        let newTop = this.initialTop + deltaY;
+
+        if (newTop < this.minTop) newTop = this.minTop;
+        if (newTop > this.maxTop) newTop = this.maxTop;
+
+        this.top = newTop;
+        this.el.style.top = this.top + "px";
+
+        const beamY = 180;
+        if (this.top <= beamY + 5 && this.top >= beamY - 55) {
+            this.beamEl.classList.add("highlight");
+        } else {
+            this.beamEl.classList.remove("highlight");
+        }
+    }
+
+    touchEnd(e) {
+        this.snapToPosition();
+        this.beamEl.classList.remove("highlight");
+        updateValue();
+    }
+
+    snapToPosition() {
+        if (this.type === "upper") {
+            this.top = this.top > 95 ? 140 : 50;
+        } else {
+            // Corrected lower beads snapping logic
+            const beamY = 180;
+            const index = parseInt(this.el.dataset.index);
+            if (this.top < beamY + 10) {
+                // Snap to beam, stacking them correctly
+                this.top = 170 + (index * 55);
+            } else {
+                // Snap to bottom
+                this.top = 230 + (index * 55);
+            }
+        }
+        this.el.style.top = this.top + "px";
+    }
+}
+
+// Build abacus
+for (let c = 0; c < columns; c++) {
+    const colDiv = document.createElement("div");
+    colDiv.className = "column";
+
+    const rod = document.createElement("div");
+    rod.className = "rod";
+    colDiv.appendChild(rod);
+
+    const beam = document.createElement("div");
+    beam.className = "beam";
+    colDiv.appendChild(beam);
+
+    // Upper bead
+    const upper = document.createElement("div");
+    upper.className = "bead upper";
+    upper.textContent = "5";
+    colDiv.appendChild(upper);
+    beads.push(new Bead(c, "upper", upper, 50, 140, beam));
+
+    // Lower beads
+    for (let i = 0; i < 4; i++) {
+        const lower = document.createElement("div");
+        lower.className = "bead lower";
+        lower.textContent = "1";
+        // Assign a data-index to each bead for correct positioning
+        lower.dataset.index = i;
+        colDiv.appendChild(lower);
+        beads.push(new Bead(c, "lower", lower, 170, 230 + i * 55, beam));
+    }
+
+    abacus.appendChild(colDiv);
+}
+
+// Calculate value based on bead positions
+function getDigit(col) {
+    let upperBead = beads.find(b => b.col === col && b.type === "upper");
+    let upper = upperBead.top > 95 ? 5 : 0;
+
+    let lowerBeads = beads.filter(b => b.col === col && b.type === "lower");
+    let lowers = lowerBeads.filter(b => b.top < 200).length;
+    return upper + lowers;
+}
+
+function updateValue() {
+    let total = 0;
+    for (let c = 0; c < columns; c++) {
+        total += getDigit(c) * Math.pow(10, columns - 1 - c);
+    }
+    document.getElementById("status").textContent = "Value: " + total;
+}
+
+updateValue();
+</script>
+</body>
+</html>
