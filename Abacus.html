@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>p5.js Abacus (Soroban) — Interactive + Expression</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background: #f5f7fb; color:#111; }
+    #ui {
+      position: absolute; left: 12px; top: 12px; z-index: 10;
+      background: rgba(255,255,255,0.9); border-radius: 10px; padding: 12px; box-shadow: 0 6px 20px rgba(20,30,60,0.12);
+    }
+    input[type="text"] { width: 360px; padding: 8px 10px; border-radius: 6px; border:1px solid #d6dbe9; font-size:14px; }
+    button { margin-left:8px; padding:8px 12px; border-radius:6px; border:0; background:#2b7cff; color:white; cursor:pointer; font-weight:600; }
+    button.secondary { background:#7b8aa3; }
+    .small { font-size:13px; color:#445; margin-top:6px; display:block; }
+    @media (max-width:640px){
+      input[type="text"]{ width: 200px;}
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.6.0/lib/p5.min.js"></script>
+</head>
+<body>
+  <div id="ui">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <input id="expr" type="text" placeholder="Enter expression e.g. 123 + 45 * (6 - 2)" value="123 + 45" />
+      <button id="evalBtn">Evaluate</button>
+      <button id="clearBtn" class="secondary">Clear</button>
+    </div>
+    <div class="small">Click a column to increment its digit. Result displays on the abacus as integer (negative not supported — absolute value used).</div>
+  </div>
+
+  <script>
+    // ---------- Abacus logic ----------
+    // We'll create a soroban (1 upper bead worth 5, 4 lower beads worth 1 each)
+    // columns: array of digits 0..9, index 0 => units, 1 => tens, etc.
+
+    let abacus;
+    const COLS = 12; // up to billions: 12 digits (you can increase)
+    const beadAnimSpeed = 0.18; // interpolation speed for animation
+
+    function setup(){
+      const canvas = createCanvas(windowWidth, windowHeight);
+      canvas.style('display','block');
+      abacus = new Abacus(COLS);
+
+      // UI wiring
+      document.getElementById('evalBtn').addEventListener('click', ()=> {
+        const s = document.getElementById('expr').value.trim();
+        const val = safeEvalExpression(s);
+        if (val === null) {
+          alert('Invalid expression — only digits, spaces and operators + - * / ( ) allowed.');
+          return;
+        }
+        abacus.setInteger(Math.abs(Math.trunc(val)));
+      });
+
+      document.getElementById('clearBtn').addEventListener('click', ()=> {
+        document.getElementById('expr').value = '';
+        abacus.setInteger(0);
+      });
+
+      // set default
+      abacus.setInteger(123 + 45);
+      frameRate(60);
+    }
+
+    function windowResized(){
+      resizeCanvas(windowWidth, windowHeight);
+      abacus.layout(); // recompute positions
+    }
+
+    function draw(){
+      background(245,247,251);
+      abacus.update();
+      abacus.draw();
+    }
+
+    function mousePressed(){
+      abacus.onMousePressed(mouseX, mouseY);
+    }
+
+    // ---------- Abacus Class ----------
+    class Abacus {
+      constructor(cols){
+        this.cols = cols;
+        this.digits = new Array(cols).fill(0); // 0..9 per column
+        this.displayDigits = new Array(cols).fill(0); // for animation target
+        this.colX = new Array(cols).fill(0);
+        this.topY = 0;
+        this.bottomY = 0;
+        this.colSpacing = 0;
+        this.colWidth = 0;
+        this.frame = 0;
+        this.layout();
+        // Each column keeps an animated "value" between 0..9, used to interpolate bead positions
+        this.animatedDigits = new Array(cols).fill(0);
+      }
+
+      layout(){
+        const margin = 120;
+        const availableW = max(320, width - margin*2);
+        this.colSpacing = availableW / this.cols;
+        this.colWidth = min(60, this.colSpacing*0.7);
+        const startX = (width - (this.colSpacing * (this.cols-1))) / 2;
+        for(let i=0;i<this.cols;i++){
+          this.colX[i] = startX + i*this.colSpacing;
+        }
+        this.topY = height*0.28;
+        this.bottomY = height*0.66;
+      }
+
+      update(){
+        // animate each digit value toward displayDigits
+        for(let i=0;i<this.cols;i++){
+          const t = this.displayDigits[i];
+          // Animated digits interpolate toward t
+          this.animatedDigits[i] += (t - this.animatedDigits[i]) * beadAnimSpeed;
+        }
+        this.frame++;
+      }
+
+      draw(){
+        push();
+        noStroke();
+        // draw the frame
+        const frameW = this.colSpacing * (this.cols-1) + this.colWidth*1.4;
+        const frameH = (this.bottomY - this.topY) + 60;
+        const frameX = this.colX[0] - this.colWidth*0.7;
+        const frameY = this.topY - 40;
+
+        // wood background
+        fill(45, 33, 19);
+        rect(frameX - 20, frameY - 18, frameW + 40, frameH + 36, 18);
+
+        // inner panel
+        fill(238, 232, 210);
+        rect(frameX, frameY, frameW, frameH, 12);
+
+        // horizontal beam (separator between heaven and earth beads)
+        stroke(90,60,25); strokeWeight(6);
+        line(frameX+10, (this.topY+this.bottomY)/2, frameX+frameW-10, (this.topY+this.bottomY)/2);
+
+        noStroke();
+
+        // draw columns
+        for(let c=0;c<this.cols;c++){
+          this.drawColumn(c);
+        }
+
+        // draw numeric readout top-left small
+        fill(20,20,30);
+        textAlign(LEFT, TOP);
+        textSize(14);
+        const valueStr = this.getInteger().toLocaleString();
+        text('Value: ' + valueStr, frameX+12, frameY+8);
+
+        pop();
+      }
+
+      drawColumn(c){
+        const cx = this.colX[c];
+        // vertical rod
+        stroke(90,60,25); strokeWeight(3);
+        line(cx, this.topY - 40, cx, this.bottomY + 40);
+        noStroke();
+
+        // draw upper bead region (one bead: value 5)
+        // We'll position beads by animatedDigits[c] which moves 0..9 -> convert to bead positions
+        const targetDigit = this.animatedDigits[c]; // fractional during animation
+
+        // compute how many lower beads and whether upper bead is active from targetDigit
+        // For drawing, we need fractional positions: For digit d:
+        // upperActive = d >=5
+        // lowerActive = d%5 (0..4)
+        // But for fractional we compute continuous positions:
+        const upperActive = targetDigit >= 5 ? 1 : 0;
+        const lowerCount = targetDigit - (upperActive*5); // fractional 0..4
+
+        // Define bead geometry
+        const beadR = this.colWidth*0.38;
+        const spacing = 6;
+        // upper bead target center: when inactive it's high, when active it sinks down near beam
+        const upperTop = this.topY - 30;
+        const upperBottom = (this.topY + this.bottomY)/2 - beadR - 6;
+        const upperY = lerp(upperTop, upperBottom, clamp((targetDigit / 5), 0, 1));
+
+        // lower beads: we have 4 beads stacked below the beam.
+        // They slide upward when active. We'll place them with gaps.
+        const lowerBaseY = (this.topY + this.bottomY)/2 + 30;
+        const lowerSpacing = beadR*1.2 + spacing;
+        // For animation, we raise the bottommost 'lowerCount' beads toward the beam.
+        // We'll compute each of 4 beads' target positions:
+        const beadPositions = [];
+        for(let i=0;i<4;i++){
+          // index 0 => topmost lower bead (closest to beam), index 3 => bottom-most
+          const indexFromTop = i; // 0..3
+          const inactiveY = lowerBaseY + indexFromTop * lowerSpacing;
+          const activeY = (this.topY + this.bottomY)/2 + beadR + 8 + indexFromTop * 6; // tightened near beam
+          // Determine how much this bead should move: beads with index < lowerCount move upward
+          // lowerCount can be fractional; beads move partially when fractional.
+          const beadShouldBeActive = lowerCount > indexFromTop ? 1 : 0;
+          const fractionActive = clamp(lowerCount - indexFromTop, 0, 1);
+          const by = lerp(inactiveY, activeY, fractionActive);
+          beadPositions.push(by);
+        }
+
+        // draw upper bead
+        fill(220,105,35);
+        ellipse(cx, upperY, beadR*2, beadR*1.25);
+
+        // bead highlight
+        fill(255,255,255,40);
+        ellipse(cx - beadR*0.25, upperY - beadR*0.25, beadR*0.6, beadR*0.35);
+
+        // draw lower beads (4)
+        for(let i=0;i<4;i++){
+          const by = beadPositions[i];
+          fill(200,90,32);
+          ellipse(cx, by, beadR*2, beadR*1.25);
+          // small highlight
+          fill(255,255,255,35);
+          ellipse(cx - beadR*0.25, by - beadR*0.25, beadR*0.6, beadR*0.35);
+        }
+
+        // small column label (10^index)
+        noStroke();
+        fill(40);
+        textSize(11);
+        textAlign(CENTER, TOP);
+        const powerLabel = c === 0 ? '1' : '10^' + c;
+        text(powerLabel, cx, this.bottomY + 28);
+      }
+
+      // programmatic setter: set digits from integer (0 => all zero)
+      setInteger(n){
+        // n is a non-negative integer
+        let v = n;
+        for(let i=0;i<this.cols;i++){
+          const d = v % 10;
+          this.displayDigits[i] = d;
+          v = Math.floor(v / 10);
+        }
+        // if number too large, higher columns stay at 0; (alternatively could expand)
+      }
+
+      // read current integer from displayDigits (rounded)
+      getInteger(){
+        // round animatedDigits to nearest whole digit for reading
+        let total = 0n;
+        for(let i=0;i<this.cols;i++){
+          const d = Math.round(this.animatedDigits[i]);
+          total += BigInt(d) * (10n ** BigInt(i));
+        }
+        // convert BigInt to Number if safe, else string
+        try {
+          const num = Number(total);
+          if (!Number.isFinite(num)) return total.toString();
+          return num;
+        } catch(e){
+          return total.toString();
+        }
+      }
+
+      // handle clicking a column: find nearest column and cycle digit +1 mod 10
+      onMousePressed(mx, my){
+        // detect nearest column within horizontal threshold
+        let best = -1; let bestDist = 1e9;
+        for(let i=0;i<this.cols;i++){
+          const d = abs(mx - this.colX[i]);
+          if (d < bestDist) { bestDist = d; best = i; }
+        }
+        if (bestDist < this.colSpacing*0.6){
+          // increment the target digit (displayDigits) by 1 modulo 10
+          this.displayDigits[best] = (Math.round(this.displayDigits[best]) + 1) % 10;
+        }
+      }
+    }
+
+    // ---------- Utilities ----------
+    function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
+
+    // Safe evaluator: only allow digits, spaces, + - * / ( )
+    function safeEvalExpression(s){
+      if (!s || typeof s !== 'string') return null;
+      // remove all acceptable characters and see if anything illegal remains
+      const allowed = /^[0-9+\-*/().\s]+$/;
+      if (!allowed.test(s)) return null;
+      // Avoid sequences like '/*' or '//'? JS eval can be used but only allowed chars are present.
+      try {
+        // evaluate using Function to avoid access to outer scope
+        // ensure we coerce to Number, remove leading zeros allowed.
+        const fn = new Function('return (' + s + ')');
+        const r = fn();
+        if (typeof r === 'number' && isFinite(r)) return r;
+        // bigint? not allowed from arithmetic; return null
+        return null;
+      } catch(e){
+        return null;
+      }
+    }
+  </script>
+</body>
+</html>
