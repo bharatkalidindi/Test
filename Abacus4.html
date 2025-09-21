@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Touch Abacus</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #f4f7ff;
+      text-align: center;
+    }
+    #status {
+      margin: 20px;
+      font-size: 22px;
+      font-weight: bold;
+    }
+    #warning {
+      color: red;
+      font-size: 18px;
+      font-weight: bold;
+      margin: 5px;
+      min-height: 20px;
+    }
+    #abacus {
+      display: flex;
+      justify-content: center;
+      margin-top: 30px;
+      user-select: none;
+      touch-action: manipulation;
+    }
+    .column {
+      margin: 0 10px;
+      position: relative;
+    }
+    .beam {
+      width: 6px;
+      background: #444;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 0; bottom: 0;
+      z-index: -1;
+    }
+    .bead {
+      width: 50px; height: 50px;
+      border-radius: 50%;
+      margin: 8px 0;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: bold;
+      transition: transform 0.25s;
+    }
+    .upper { background: #ff7070; }
+    .lower { background: #409eff; }
+  </style>
+</head>
+<body>
+<div id="status">Value: 0</div>
+<div id="warning"></div>
+<div id="abacus"></div>
+
+<script>
+const columns = 5; // number of columns
+const abacus = document.getElementById("abacus");
+
+class Bead {
+  constructor(col, type, el){
+    this.col = col;
+    this.type = type; // "upper" or "lower"
+    this.active = false;
+    this.el = el;
+    el.addEventListener("touchstart", () => this.toggle());
+    el.addEventListener("click", () => this.toggle()); // fallback for desktop
+  }
+  toggle(){
+    this.active = !this.active;
+    this.render();
+    validateMoves();
+    updateValue();
+  }
+  render(){
+    if(this.type==="upper"){
+      this.el.style.transform = this.active ? "translateY(70px)" : "translateY(0)";
+    } else {
+      this.el.style.transform = this.active ? "translateY(-70px)" : "translateY(0)";
+    }
+  }
+}
+
+const beads = [];
+
+// build abacus
+for(let c=0;c<columns;c++){
+  const colDiv = document.createElement("div");
+  colDiv.className="column";
+  const beam = document.createElement("div");
+  beam.className="beam";
+  colDiv.appendChild(beam);
+  // upper bead
+  const upper = document.createElement("div");
+  upper.className="bead upper";
+  upper.textContent="5";
+  colDiv.appendChild(upper);
+  beads.push(new Bead(c,"upper",upper));
+  // lower beads
+  for(let i=0;i<4;i++){
+    const lower = document.createElement("div");
+    lower.className="bead lower";
+    lower.textContent="1";
+    colDiv.appendChild(lower);
+    beads.push(new Bead(c,"lower",lower));
+  }
+  abacus.appendChild(colDiv);
+}
+
+function getDigit(col){
+  let upper = beads.find(b=>b.col===col && b.type==="upper" && b.active)?5:0;
+  let lowers = beads.filter(b=>b.col===col && b.type==="lower" && b.active).length;
+  return upper+lowers;
+}
+
+function updateValue(){
+  let total=0;
+  for(let c=0;c<columns;c++){
+    total += getDigit(c)*Math.pow(10,columns-1-c);
+  }
+  document.getElementById("status").textContent = "Value: " + total;
+}
+
+function validateMoves(){
+  let warning = "";
+  for(let c=0;c<columns;c++){
+    const upperActive = beads.find(b=>b.col===c && b.type==="upper" && b.active);
+    const lowersActive = beads.filter(b=>b.col===c && b.type==="lower" && b.active).length;
+    if(lowersActive>4){
+      warning = "Too many lower beads in column "+(c+1);
+      break;
+    }
+    if(upperActive && lowersActive===0 && getDigit(c)===0){
+      warning = "Upper bead alone is invalid in column "+(c+1);
+      break;
+    }
+  }
+  document.getElementById("warning").textContent = warning;
+}
+</script>
+</body>
+</html>
