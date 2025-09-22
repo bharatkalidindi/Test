@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pendulum Art</title>
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.7.0/lib/p5.min.js"></script>
+  <script>
+let t = 0;
+let pivot;
+let trail;
+let prevTip;
+let firstFrame = true;
+let trailColor;
+let lastAngle = 0;
+let showControls = true;
+let rods = [
+  { length: 120, angleSpeed: 0.8 }
+];
+let lengthSliders = [];
+let speedSliders = [];
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  pixelDensity(1);
+  pivot = createVector(width / 2, height / 2);
+
+  trailColor = color(255, 100, 0);
+  trail = createGraphics(windowWidth, windowHeight);
+  trail.pixelDensity(1);
+  resetTrail();
+
+  background(0);
+  strokeWeight(2);
+
+  createSliders();
+}
+
+function draw() {
+  background(0);
+  image(trail, 0, 0);
+
+  // Update rod lengths and speeds from sliders
+  for (let i = 0; i < rods.length; i++) {
+    rods[i].length = lengthSliders[i].value();
+    rods[i].angleSpeed = speedSliders[i].value();
+  }
+
+  let positions = [pivot.copy()];
+  let cumulativePos = pivot.copy();
+
+  for (let i = 0; i < rods.length; i++) {
+    let angle = t * rods[i].angleSpeed + i * 0.5;
+    let nextPos = cumulativePos.copy().add(p5.Vector.fromAngle(angle).mult(rods[i].length));
+    positions.push(nextPos);
+    cumulativePos = nextPos;
+  }
+
+  let a1 = t * rods[0].angleSpeed;
+  if (a1 % (2 * PI) < lastAngle) {
+    trailColor = color(random(50, 255), random(50, 255), random(50, 255));
+    trail.stroke(trailColor);
+  }
+  lastAngle = a1 % (2 * PI);
+
+  stroke(200);
+  for (let i = 0; i < positions.length - 1; i++) {
+    line(positions[i].x, positions[i].y, positions[i + 1].x, positions[i + 1].y);
+  }
+
+  fill(255);
+  noStroke();
+  for (let i = 0; i < positions.length - 1; i++) {
+    ellipse(positions[i].x, positions[i].y, 8, 8);
+  }
+
+  let tip = positions[positions.length - 1];
+  stroke(255, 0, 0);
+  strokeWeight(3);
+  point(tip.x, tip.y);
+
+  if (!firstFrame) {
+    trail.line(prevTip.x, prevTip.y, tip.x, tip.y);
+  } else {
+    firstFrame = false;
+  }
+  prevTip = tip.copy();
+
+  t += 0.03;
+if (showControls) {
+    drawControls();
+  }
+}
+
+function createSliders() {
+  lengthSliders.forEach(s => s.remove());
+  speedSliders.forEach(s => s.remove());
+  lengthSliders = [];
+  speedSliders = [];
+  for (let i = 0; i < rods.length; i++) {
+    let lenSlider = createSlider(50, 300, rods[i].length, 1);
+    lenSlider.position(20, 20 + i * 30);
+    lenSlider.style('width', '200px');
+    lengthSliders.push(lenSlider);
+
+    let speedSlider = createSlider(0.1, 5.0, rods[i].angleSpeed, 0.01);
+    speedSlider.position(240, 20 + i * 30);
+    speedSlider.style('width', '200px');
+    speedSliders.push(speedSlider);
+  }
+}
+
+function addRod() {
+  rods.push({ length: 120, angleSpeed: random(0.8, 2.0) });
+  createSliders();
+}
+
+function removeRod() {
+  if (rods.length > 1) {
+    rods.pop();
+    createSliders();
+  }
+}
+
+function resetTrail() {
+  trail = createGraphics(windowWidth, windowHeight);
+  trail.pixelDensity(1);
+  trail.background(0);
+  trail.stroke(trailColor);
+  trail.strokeWeight(2);
+  firstFrame = true;
+  prevTip = pivot.copy();
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  pivot = createVector(width / 2, height / 2);
+  resetTrail();
+}
+
+function touchStarted() {
+  // Only check if touch is inside button bounds
+  if (
+    (mouseX >= addBtn.x && mouseX <= addBtn.x + addBtn.width &&
+     mouseY >= addBtn.y && mouseY <= addBtn.y + addBtn.height) ||
+    (mouseX >= removeBtn.x && mouseX <= removeBtn.x + removeBtn.width &&
+     mouseY >= removeBtn.y && mouseY <= removeBtn.y + removeBtn.height) ||
+    (mouseX >= clearBtn.x && mouseX <= clearBtn.x + clearBtn.width &&
+     mouseY >= clearBtn.y && mouseY <= clearBtn.y + clearBtn.height)
+	 (mouseX >= saveBtn.x && mouseX <= saveBtn.x + saveBtn.width &&
+     mouseY >= saveBtn.y && mouseY <= saveBtn.y + saveBtn.height)
+  ) {
+    return false; // prevent default only if a button is touched
+  }
+  // Allow sliders to work normally
+  return true;
+}
+
+function drawControls() {
+  if (!showControls) return;
+
+  let radius = 25;
+  let margin = 15;
+  let cx = width - margin - radius;
+  let cy = margin + radius;
+
+  fill(50, 200, 50);
+  noStroke();
+  ellipse(cx, cy, radius * 2);
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(20);
+  text('+', cx, cy);
+
+  let cy2 = cy + 2 * radius + 10;
+  fill(200, 50, 50);
+  ellipse(cx, cy2, radius * 2);
+  fill(255);
+  text('-', cx, cy2);
+
+  let cy3 = cy2 + 2 * radius + 10;
+  fill(50, 50, 200);
+  rectMode(CENTER);
+  rect(cx, cy3, radius * 2, radius * 2);
+  fill(255);
+  textSize(16);
+  text('C', cx, cy3);
+
+  let cy4 = cy3 + 2 * radius + 10;
+  fill(200, 200, 50);
+  ellipse(cx, cy4, radius * 2);
+  fill(0);
+  textSize(16);
+  text('S', cx, cy4);
+
+  //addBtn = { x: cx - radius, y: cy - radius, width: radius * 2, height: radius * 2 };
+  //removeBtn = { x: cx - radius, y: cy2 - radius, width: radius * 2, height: radius * 2 };
+  //clearBtn = { x: cx - radius, y: cy3 - radius, width: radius * 2, height: radius * 2 };
+  //saveBtn = { x: cx - radius, y: cy4 - radius, width: radius * 2, height: radius * 2 };
+}
+
+function mousePressed() {
+  let radius = 25;
+  let margin = 15;
+  let cx = width - margin - radius;
+  let cy = margin + radius;
+
+  if (dist(mouseX, mouseY, cx, cy) < radius) {
+    addRod();
+    return;
+  }
+
+  let cy2 = cy + 2 * radius + 10;
+  if (dist(mouseX, mouseY, cx, cy2) < radius) {
+    removeRod();
+    return;
+  }
+
+  let cy3 = cy2 + 2 * radius + 10;
+  if (mouseX > cx - radius && mouseX < cx + radius &&
+      mouseY > cy3 - radius && mouseY < cy3 + radius) {
+    resetTrail();
+    return;
+  }
+
+  let cy4 = cy3 + 2 * radius + 10;
+  if (dist(mouseX, mouseY, cx, cy4) < radius) {
+    savePendulumDrawing();
+    return;
+  }
+}
+
+function keyPressed() {
+  if (key === 'h' || key === 'H') {
+    showControls = false;
+	lengthSliders.forEach(slider => slider.hide());
+    speedSliders.forEach(slider => slider.hide());
+  } else if (key === 'u' || key === 'U') {
+    showControls = true;
+    lengthSliders.forEach(slider => slider.show());
+    speedSliders.forEach(slider => slider.show());
+  }
+}
+
+function savePendulumDrawing() {
+  showControls = false;
+  redraw();
+  let tempCanvas = createGraphics(windowWidth, windowHeight);
+  tempCanvas.pixelDensity(1);
+  tempCanvas.background(0);
+  tempCanvas.image(trail, 0, 0);
+  save(tempCanvas, 'pendulum_trail.png');
+  tempCanvas.remove();
+  showControls = true;
+}
+</script>
+</head>
+<body>
+</body>
+</html>
